@@ -1,101 +1,82 @@
-import 'dart:io';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
-import '../models/user.dart';
-import '../models/victim_profile.dart';
+import '../models/user_record.dart';
+import '../models/hospital_case.dart';
+import 'package:uuid/uuid.dart';
 
 class DBService {
-  static Database? _db;
-  static const _dbName = 'first_responder.db';
+  static final List<UserRecord> _users = [];
+  static final List<HospitalCase> _hospitalInbox = [];
 
-  static Future<void> init() async {
-    if (_db != null && _db!.isOpen) return;
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, _dbName);
-    _db = await openDatabase(path, version: 1, onCreate: (db, ver) async {
-      await db.execute('''
-        CREATE TABLE users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT UNIQUE,
-          password TEXT,
-          role TEXT,
-          enabled INTEGER DEFAULT 1
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE victims (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          victim_id TEXT UNIQUE,
-          name TEXT,
-          phone TEXT,
-          medical_notes TEXT,
-          allergies TEXT,
-          medications TEXT,
-          mock_fingerprint_token TEXT
-        )
-      ''');
+  static const _uuid = Uuid();
 
-      await db.insert('users', {'username':'admin','password':'admin','role':'admin','enabled':1});
-      await db.insert('users', {'username':'paramedic01','password':'1234','role':'paramedic','enabled':1});
-      await db.insert('users', {'username':'user01','password':'1234','role':'general','enabled':1});
-      await db.insert('victims', {
-        'victim_id':'VICTIM-001',
-        'name':'Demo Victim',
-        'phone':'9999999999',
-        'medical_notes':'Diabetic',
-        'allergies':'Penicillin',
-        'medications':'Metformin',
-        'mock_fingerprint_token':'finger_abc123'
-      });
-    });
+  // ---------- CREATE USER ----------
+  static Future<bool> createUser(UserRecord user) async {
+    final exists = _users.any((u) => u.email == user.email);
+    if (exists) return false;
+
+    _users.add(user);
+    return true;
   }
 
-  static Future<Database> _getDb() async {
-    if (_db == null || !_db!.isOpen) await init();
-    return _db!;
-  }
-
-  // Users
-  static Future<int> insertUser(UserModel u) async {
-    final db = await _getDb();
-    return db.insert('users', u.toMap());
-  }
-
-  static Future<List<UserModel>> getAllUsers() async {
-    final db = await _getDb();
-    final rows = await db.query('users');
-    return rows.map((r) => UserModel.fromMap(r)).toList();
-  }
-
-  static Future<int> deleteUser(int id) async {
-    final db = await _getDb();
-    return db.delete('users', where: 'id = ?', whereArgs: [id]);
-  }
-
-  // Victims
-  static Future<int> insertVictim(VictimProfile v) async {
-    final db = await _getDb();
-    return db.insert('victims', v.toMap());
-  }
-
-  static Future<List<VictimProfile>> getAllVictims() async {
-    final db = await _getDb();
-    final rows = await db.query('victims');
-    return rows.map((r) => VictimProfile.fromMap(r)).toList();
-  }
-
-  static Future<VictimProfile?> getVictimByFingerprint(String token) async {
-    final db = await _getDb();
-    final rows = await db.query('victims', where: 'mock_fingerprint_token = ?', whereArgs: [token]);
-    if (rows.isEmpty) return null;
-    return VictimProfile.fromMap(rows.first);
-  }
-
-  static Future<void> close() async {
-    if (_db != null && _db!.isOpen) {
-      await _db!.close();
-      _db = null;
+  // ---------- UPDATE USER ----------
+  static Future<void> updateUser(UserRecord updatedUser) async {
+    final index = _users.indexWhere((u) => u.id == updatedUser.id);
+    if (index != -1) {
+      _users[index] = updatedUser;
     }
+  }
+
+  // ---------- LOGIN ----------
+  static Future<UserRecord?> login(
+    String email,
+    String password,
+  ) async {
+    try {
+      return _users.firstWhere(
+        (u) => u.email == email && u.password == password,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---------- ALL USERS (PARAMEDIC) ----------
+  static Future<List<UserRecord>> getAllUsers() async {
+    return List.from(_users);
+  }
+
+  // ---------- UPLOAD MEDICAL FILE ----------
+  static Future<void> uploadMedicalFile(
+    String userId,
+    String filePath,
+  ) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(medicalDocumentPath: filePath);
+    }
+  }
+
+  // ---------- SEND CASE TO HOSPITAL ----------
+  static Future<void> sendCaseToHospital(
+    UserRecord user,
+    String riskLevel,
+  ) async {
+    _hospitalInbox.add(
+      HospitalCase(
+        id: _uuid.v4(), // ✅ safer unique ID
+        user: user,
+        riskLevel: riskLevel,
+        time: DateTime.now(),
+      ),
+    );
+  }
+
+  // ---------- HOSPITAL FETCH ----------
+  static Future<List<HospitalCase>> getHospitalCases() async {
+    return List.from(_hospitalInbox);
+  }
+
+  // ---------- RESOLVE CASE ----------
+  static Future<void> resolveCase(String caseId) async {
+    _hospitalInbox.removeWhere((c) => c.id == caseId);
   }
 }

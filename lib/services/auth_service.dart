@@ -1,36 +1,75 @@
-import 'package:flutter/material.dart';
-import '../models/user.dart';
+import 'package:flutter/foundation.dart';
+import '../models/user_record.dart';
 import 'db_service.dart';
 
-class AuthService extends ChangeNotifier {
-  UserModel? _user;
-  UserModel? get user => _user;
+enum AuthRole { none, user, paramedic, hospital }
 
-  Future<bool> login(String username, String password, String role) async {
-    final users = await DBService.getAllUsers();
-    try {
-      final found = users.firstWhere((u) => u.username == username && u.password == password && u.role == role);
-      if (found.enabled == 0) return false;
-      _user = found;
+class AuthService extends ChangeNotifier {
+  UserRecord? _currentUser;
+  AuthRole _role = AuthRole.none;
+
+  UserRecord? get currentUser => _currentUser;
+  AuthRole get role => _role;
+
+  bool get isUser => _role == AuthRole.user;
+  bool get isParamedic => _role == AuthRole.paramedic;
+  bool get isHospital => _role == AuthRole.hospital;
+
+  // ---------- USER SIGNUP ----------
+  Future<bool> signupUser(UserRecord user) async {
+    final ok = await DBService.createUser(user);
+    if (!ok) return false;
+
+    _currentUser = user;
+    _role = AuthRole.user;
+    notifyListeners();
+    return true;
+  }
+
+  // ---------- USER LOGIN ----------
+  Future<bool> loginUser(String email, String password) async {
+    final user = await DBService.login(email, password);
+    if (user == null) return false;
+
+    _currentUser = user;
+    _role = AuthRole.user;
+    notifyListeners();
+    return true;
+  }
+
+  // ---------- PARAMEDIC LOGIN ----------
+  bool loginParamedic(String email, String password) {
+    if (email == 'paramedic@frs.com' && password == '123456') {
+      _currentUser = null;
+      _role = AuthRole.paramedic;
       notifyListeners();
       return true;
-    } catch (e) {
-      return false;
     }
+    return false;
   }
 
-  Future<bool> signup(String username, String password, String role) async {
-    try {
-      final newUser = UserModel(username: username, password: password, role: role);
-      await DBService.insertUser(newUser);
+  // ---------- HOSPITAL LOGIN ----------
+  bool loginHospital(String email, String password) {
+    if (email == 'hospital@frs.com' && password == '123456') {
+      _currentUser = null;
+      _role = AuthRole.hospital;
+      notifyListeners();
       return true;
-    } catch (e) {
-      return false;
     }
+    return false;
   }
 
-  Future<void> logout() async {
-    _user = null;
+  // ---------- UPDATE USER ----------
+  Future<void> updateCurrentUser(UserRecord updatedUser) async {
+    await DBService.updateUser(updatedUser);
+    _currentUser = updatedUser;
+    notifyListeners();
+  }
+
+  // ---------- LOGOUT ----------
+  void logout() {
+    _currentUser = null;
+    _role = AuthRole.none;
     notifyListeners();
   }
 }

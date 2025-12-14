@@ -1,39 +1,36 @@
 name: minor_project
 description: "FirstResponderID - minimal working prototype"
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.1.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # UI / Common
-  cupertino_icons: ^1.0.8
-  provider: ^6.1.2
+  # State management
+  provider: ^6.0.5
 
-  # Database
+  # Maps & location
+  google_maps_flutter: ^2.6.0
+  location: ^6.0.2
+  geolocator: ^11.0.0
+
+  # Local storage
   sqflite: ^2.3.3+1
   path_provider: ^2.1.3
 
-  # Security / Storage
-  flutter_secure_storage: ^9.2.2
+  # Files & external actions
+  file_picker: ^6.1.1
+  url_launcher: ^6.2.5
 
-  # Maps (OpenStreetMap)
-  flutter_map: ^8.2.2
-  latlong2: ^0.9.1
+  # Networking
+  uuid: ^4.4.0
 
-  # Location
-  geolocator: ^9.0.2
-
-  # Network
-  http: ^1.6.0
-
-  # Utilities
-  url_launcher: ^6.3.0
+  # Open files
+  open_filex: ^4.4.0
 
 dev_dependencies:
   flutter_test:
